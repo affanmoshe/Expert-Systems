@@ -91,7 +91,7 @@ def get_ai_suggestions(selected_symptom_descriptions_list):
     )
 
     # api call 
-    api_key = "" 
+    api_key = "AIzaSyDr-0Apfj_a7POuB6ObY8cbkD5SbJn9hB4" 
 
     if api_key == "none" or not api_key:
         return (
