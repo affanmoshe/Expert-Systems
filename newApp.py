@@ -42,12 +42,12 @@ diseases_data = {
 
 # rule of inference
 rules_data = [
-    {"conditions": ["G03", "G04", "G05", "G06", "G07", "G11", "G12", "G13"], "disease_code": "P1"},
-    {"conditions": ["G04", "G08", "G14"], "disease_code": "P2"},
-    {"conditions": ["G01", "G02", "G07", "G08", "G15"], "disease_code": "P3"},
+    {"conditions": ["G3", "G4", "G5", "G6", "G7", "G11", "G12", "G13"], "disease_code": "P1"},
+    {"conditions": ["G4", "G8", "G14"], "disease_code": "P2"},
+    {"conditions": ["G1", "G2", "G7", "G8", "G15"], "disease_code": "P3"},
     {"conditions": ["G16", "G17", "G18"], "disease_code": "P4"},
     {"conditions": ["G19", "G20", "G21", "G22"], "disease_code": "P5"},
-    {"conditions": ["G05", "G09", "G10", "G23", "G24"], "disease_code": "P6"}
+    {"conditions": ["G5", "G9", "G10", "G23", "G24"], "disease_code": "P6"}
 ]
 
 def detect_disease_rules(selected_symptom_codes):
@@ -178,10 +178,6 @@ def main():
             if diagnosed_diseases_rules:
                 for disease in diagnosed_diseases_rules:
                     st.success(f"Berdasarkan gejala yang dipilih dan aturan yang ada, Anda kemungkinan menderita: **{disease}**")
-                st.markdown("""
-                **Penting:** Hasil ini bersifat prediktif berdasarkan aturan yang ada. 
-                Segera konsultasikan dengan dokter atau tenaga medis profesional untuk pemeriksaan lebih lanjut dan diagnosis yang akurat.
-                """)
             else:
                 st.info("Tidak ada penyakit spesifik yang terdeteksi berdasarkan kombinasi gejala yang Anda pilih dari aturan yang tersedia.")
                 st.markdown("Jika Anda merasa khawatir dengan kondisi kesehatan Anda, sebaiknya tetap berkonsultasi dengan dokter.")
