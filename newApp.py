@@ -207,7 +207,6 @@ def main():
                 st.markdown("---")
                 st.subheader("LLM Response")
                 st.markdown(ai_response, unsafe_allow_html=True) # unsafe_allow_html untuk render markdown 
-                st.warning("**Penting:** Saran dari AI bersifat informatif, eksperimental, dan **TIDAK MENGGANTIKAN** diagnosis medis profesional. Selalu konsultasikan dengan dokter.")
 
     st.markdown("---")
     st.caption(" Kelompok 6 ")
