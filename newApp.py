@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 import json
 
-# Data gejala (Premise)
 symptoms_data = {
     "G1": "Poliura (Sering Kencing)",
     "G2": "Mual dan muntah",
@@ -30,7 +29,6 @@ symptoms_data = {
     "G24": "Sembelit"
 }
 
-# Data penyakit
 diseases_data = {
     "P1": "Hipoglikemia",
     "P2": "Hiperglikemia",
@@ -40,7 +38,6 @@ diseases_data = {
     "P6": "Neuropati Diabetik"
 }
 
-# Aturan inferensi (Rule of inference)
 rules_data = [
     {"conditions": ["G3", "G4", "G5", "G6", "G7", "G11", "G12", "G13"], "disease_code": "P1"},
     {"conditions": ["G4", "G8", "G14"], "disease_code": "P2"},
@@ -48,19 +45,17 @@ rules_data = [
     {"conditions": ["G16", "G17", "G18"], "disease_code": "P4"},
     {"conditions": ["G19", "G20", "G21", "G22"], "disease_code": "P5"},
     {"conditions": ["G5", "G9", "G10", "G23", "G24"], "disease_code": "P6"}
-]
+] 
 
 def make_llm_request(prompt):
     """
-    Mengirim permintaan ke Gemini API dan mengembalikan responsnya.
+    Mengirim permintaan ke Gemini API dan mengembalikan responsnya
     """
-    api_key = "AIzaSyDr-0Apfj_a7POuB6ObY8cbkD5SbJn9hB4" 
+    api_key = "" 
 
     if api_key == "none" or not api_key:
         return (
-            "**API Key Belum Dikonfigurasi.**\n\n"
-            "Untuk menggunakan fitur AI, Anda perlu memasukkan API Key Google Gemini Anda "
-            "di dalam kode."
+            "Api key not detected"
         )
 
     api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
@@ -80,7 +75,7 @@ def make_llm_request(prompt):
             result["candidates"][0]["content"]["parts"][0].get("text")):
             return result["candidates"][0]["content"]["parts"][0]["text"]
         else:
-            return "Gagal mendapatkan respons yang valid dari AI. Struktur respons tidak sesuai."
+            return "Gagal mendapatkan respons yang valid dari LLM. Struktur respons tidak sesuai."
     except requests.exceptions.Timeout:
         return "Permintaan ke AI melebihi batas waktu (timeout). Coba lagi nanti."
     except requests.exceptions.HTTPError as http_err:
@@ -91,24 +86,20 @@ def make_llm_request(prompt):
     except Exception as e:
         return f"Terjadi kesalahan yang tidak terduga saat memproses permintaan AI: {e}"
 
-def detect_disease_rules(selected_symptom_codes):
-    """
-    Mendeteksi penyakit berdasarkan gejala yang dipilih dan aturan yang ada.
-    """
+def detect_disease_rules(selected_symptom_codes): # mendeteksi penyakit berdasarkan gejala yang dipilih dan aturan yang ada.
+
     detected_diseases = []
     for rule in rules_data:
         if set(rule["conditions"]).issubset(set(selected_symptom_codes)):
             disease_name = diseases_data.get(rule["disease_code"])
             if disease_name and disease_name not in detected_diseases:
-                detected_diseases.append(disease_name)
+                detected_diseases.append(disease_name) 
     return detected_diseases
 
 def get_ai_suggestions(selected_symptom_descriptions_list):
-    """
-    Menyusun prompt untuk analisis gejala dan memanggil LLM.
-    """
+  # masukkan prompt untuk saran penanganan disease yang di diagnosa
     if not selected_symptom_descriptions_list:
-        return "Tidak ada gejala yang dipilih untuk analisis AI."
+        return "Tidak ada gejala yang dipilih"
 
     symptoms_text = "\n".join([f"- {desc}" for desc in selected_symptom_descriptions_list])
     prompt = (
@@ -125,9 +116,8 @@ def get_ai_suggestions(selected_symptom_descriptions_list):
     return make_llm_request(prompt)
 
 def get_treatment_recommendation(disease_name):
-    """
-    Menyusun prompt untuk rekomendasi penanganan awal dan memanggil LLM.
-    """
+    # masukkan prompt
+
     prompt = (
         "Anda adalah seorang ahli medis AI. Seseorang didiagnosis menderita "
         f"**{disease_name}**.\n\n"
@@ -178,13 +168,12 @@ def main():
     if st.button("Deteksi Penyakit Dengan Rule of Inference", type="primary", use_container_width=True):
         st.session_state.selected_symptoms = selected_symptoms_codes
         if not st.session_state.selected_symptoms:
-            st.warning("Mohon pilih minimal satu gejala untuk melakukan deteksi.")
+            st.warning("Mohon pilih minimal satu gejala untuk melakukan deteksi")
             st.session_state.diagnosed_diseases = []
         else:
             diagnosed_diseases_rules = detect_disease_rules(st.session_state.selected_symptoms)
             st.session_state.diagnosed_diseases = diagnosed_diseases_rules
             
-            # Reset tampilan hasil sebelumnya
             st.rerun()
             
     if st.session_state.selected_symptoms:
@@ -201,7 +190,7 @@ def main():
             for disease in st.session_state.diagnosed_diseases:
                 st.success(f"Berdasarkan gejala yang dipilih, Anda kemungkinan menderita: **{disease}**")
                 
-                # Tombol untuk meminta saran penanganan
+                # saran penanganan awal disease
                 if st.button(f"Minta Saran Penanganan Awal untuk {disease}", key=f"btn_{disease}", use_container_width=True):
                     with st.spinner(f"Meminta saran AI untuk {disease}..."):
                         recommendation = get_treatment_recommendation(disease)
