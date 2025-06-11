@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import json
 
-# premis 
+# Data gejala (Premise)
 symptoms_data = {
     "G1": "Poliura (Sering Kencing)",
     "G2": "Mual dan muntah",
@@ -30,7 +30,7 @@ symptoms_data = {
     "G24": "Sembelit"
 }
 
-# data penyakit 
+# Data penyakit
 diseases_data = {
     "P1": "Hipoglikemia",
     "P2": "Hiperglikemia",
@@ -40,7 +40,7 @@ diseases_data = {
     "P6": "Neuropati Diabetik"
 }
 
-# rule of inference
+# Aturan inferensi (Rule of inference)
 rules_data = [
     {"conditions": ["G3", "G4", "G5", "G6", "G7", "G11", "G12", "G13"], "disease_code": "P1"},
     {"conditions": ["G4", "G8", "G14"], "disease_code": "P2"},
@@ -50,29 +50,62 @@ rules_data = [
     {"conditions": ["G5", "G9", "G10", "G23", "G24"], "disease_code": "P6"}
 ]
 
+def make_llm_request(prompt):
+    """
+    Mengirim permintaan ke Gemini API dan mengembalikan responsnya.
+    """
+    api_key = "AIzaSyDr-0Apfj_a7POuB6ObY8cbkD5SbJn9hB4" 
+
+    if api_key == "none" or not api_key:
+        return (
+            "**API Key Belum Dikonfigurasi.**\n\n"
+            "Untuk menggunakan fitur AI, Anda perlu memasukkan API Key Google Gemini Anda "
+            "di dalam kode."
+        )
+
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}]
+    }
+    headers = {"Content-Type": "application/json"}
+
+    try:
+        response = requests.post(api_url, headers=headers, json=payload, timeout=45)
+        response.raise_for_status()
+        result = response.json()
+
+        if (result.get("candidates") and
+            result["candidates"][0].get("content") and
+            result["candidates"][0]["content"].get("parts") and
+            result["candidates"][0]["content"]["parts"][0].get("text")):
+            return result["candidates"][0]["content"]["parts"][0]["text"]
+        else:
+            return "Gagal mendapatkan respons yang valid dari AI. Struktur respons tidak sesuai."
+    except requests.exceptions.Timeout:
+        return "Permintaan ke AI melebihi batas waktu (timeout). Coba lagi nanti."
+    except requests.exceptions.HTTPError as http_err:
+        error_detail = f"Kode Status: {http_err.response.status_code}, Respons: {http_err.response.text}"
+        return f"Terjadi kesalahan HTTP saat menghubungi AI: {error_detail}"
+    except requests.exceptions.RequestException as e:
+        return f"Terjadi kesalahan koneksi saat menghubungi AI: {e}"
+    except Exception as e:
+        return f"Terjadi kesalahan yang tidak terduga saat memproses permintaan AI: {e}"
+
 def detect_disease_rules(selected_symptom_codes):
     """
-    Mendeteksi penyakit berdasarkan gejala yang dipilih dan aturan yang ada (rule-based).
-    Args:
-        selected_symptom_codes (list): Daftar kode gejala yang dipilih oleh pengguna.
-    Returns:
-        list: Daftar nama penyakit yang terdeteksi berdasarkan aturan.
+    Mendeteksi penyakit berdasarkan gejala yang dipilih dan aturan yang ada.
     """
-    detected_diseases_rules = []
+    detected_diseases = []
     for rule in rules_data:
         if set(rule["conditions"]).issubset(set(selected_symptom_codes)):
             disease_name = diseases_data.get(rule["disease_code"])
-            if disease_name and disease_name not in detected_diseases_rules:
-                detected_diseases_rules.append(disease_name)
-    return detected_diseases_rules
+            if disease_name and disease_name not in detected_diseases:
+                detected_diseases.append(disease_name)
+    return detected_diseases
 
 def get_ai_suggestions(selected_symptom_descriptions_list):
     """
-    Menyusun prompt, memanggil LLM (Gemini API), dan mengembalikan responsnya.
-    Args:
-        selected_symptom_descriptions_list (list): Daftar deskripsi gejala yang dipilih.
-    Returns:
-        str: Respons dari LLM atau pesan kesalahan.
+    Menyusun prompt untuk analisis gejala dan memanggil LLM.
     """
     if not selected_symptom_descriptions_list:
         return "Tidak ada gejala yang dipilih untuk analisis AI."
@@ -89,49 +122,22 @@ def get_ai_suggestions(selected_symptom_descriptions_list):
         "Pasien harus selalu berkonsultasi dengan profesional medis untuk diagnosis yang akurat.\n\n"
         "Kemungkinan kondisi:"
     )
+    return make_llm_request(prompt)
 
-    # api call 
-    api_key = "AIzaSyDr-0Apfj_a7POuB6ObY8cbkD5SbJn9hB4" 
-
-    if api_key == "none" or not api_key:
-        return (
-            "**API Key Belum Dikonfigurasi.**\n\n"
-            "Untuk menggunakan fitur AI, Anda perlu memasukkan API Key Google Gemini Anda "
-            "di dalam kode sumber fungsi `get_ai_suggestions`.\n\n"
-            f"Prompt yang akan dikirim:\n```text\n{prompt}\n```"
-        )
-
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-    payload = {
-        "contents": [{
-            "role": "user",
-            "parts": [{"text": prompt}]
-        }]
-    }
-    headers = {"Content-Type": "application/json"}
-
-    try:
-        response = requests.post(api_url, headers=headers, json=payload, timeout=45) 
-        response.raise_for_status()  
-        result = response.json()
-
-        if (result.get("candidates") and
-            result["candidates"][0].get("content") and
-            result["candidates"][0]["content"].get("parts") and
-            result["candidates"][0]["content"]["parts"][0].get("text")):
-            return result["candidates"][0]["content"]["parts"][0]["text"]
-        else:
-            error_detail = f"Struktur respons tidak terduga: {json.dumps(result, indent=2)}"
-            return "Gagal mendapatkan respons yang valid dari AI. Struktur respons tidak sesuai."
-    except requests.exceptions.Timeout:
-        return "Permintaan ke AI melebihi batas waktu (timeout). Coba lagi nanti."
-    except requests.exceptions.HTTPError as http_err:
-        error_detail = f"Kode Status: {http_err.response.status_code}, Respons: {http_err.response.text}"
-        return f"Terjadi kesalahan HTTP saat menghubungi AI: {error_detail}"
-    except requests.exceptions.RequestException as e:
-        return f"Terjadi kesalahan koneksi saat menghubungi AI: {e}"
-    except Exception as e: 
-        return f"Terjadi kesalahan yang tidak terduga saat memproses permintaan AI: {e}"
+def get_treatment_recommendation(disease_name):
+    """
+    Menyusun prompt untuk rekomendasi penanganan awal dan memanggil LLM.
+    """
+    prompt = (
+        "Anda adalah seorang ahli medis AI. Seseorang didiagnosis menderita "
+        f"**{disease_name}**.\n\n"
+        "Berikan saran penanganan awal yang dapat dilakukan di rumah sebelum atau sambil menunggu "
+        "konsultasi dengan dokter. Fokus pada langkah-langkah praktis dan aman.\n\n"
+        "Penting untuk ditekankan bahwa saran ini **bukan pengganti nasihat medis profesional**. "
+        "Sertakan kalimat peringatan yang jelas agar pengguna segera berkonsultasi dengan dokter.\n\n"
+        "Format jawaban dalam bentuk poin-poin atau daftar bernomor untuk kemudahan membaca."
+    )
+    return make_llm_request(prompt)
 
 
 def main():
@@ -144,6 +150,13 @@ def main():
     Aplikasi ini membantu melakukan deteksi dini beberapa penyakit terkait diabetes berdasarkan gejala yang Anda alami. 
     Pilih gejala-gejala di bawah ini, lalu klik tombol "Deteksi Penyakit". 
     """)
+
+    # Inisialisasi session state
+    if 'diagnosed_diseases' not in st.session_state:
+        st.session_state.diagnosed_diseases = []
+    if 'selected_symptoms' not in st.session_state:
+        st.session_state.selected_symptoms = []
+
 
     st.header("Pilih Gejala yang Anda Alami:")
 
@@ -163,53 +176,71 @@ def main():
     st.markdown("---") 
 
     if st.button("Deteksi Penyakit Dengan Rule of Inference", type="primary", use_container_width=True):
-        if not selected_symptoms_codes:
+        st.session_state.selected_symptoms = selected_symptoms_codes
+        if not st.session_state.selected_symptoms:
             st.warning("Mohon pilih minimal satu gejala untuk melakukan deteksi.")
+            st.session_state.diagnosed_diseases = []
         else:
-            st.subheader("Gejala yang Dipilih:")
-            cols_gejala = st.columns(3)
-            for idx, code in enumerate(selected_symptoms_codes):
-                 cols_gejala[idx % 3].info(f"{code}: {symptoms_data[code]}")
-
-            diagnosed_diseases_rules = detect_disease_rules(selected_symptoms_codes)
+            diagnosed_diseases_rules = detect_disease_rules(st.session_state.selected_symptoms)
+            st.session_state.diagnosed_diseases = diagnosed_diseases_rules
             
-            st.markdown("---")
-            st.subheader("Hasil Deteksi Berdasarkan Rule of Inference:")
-            if diagnosed_diseases_rules:
-                for disease in diagnosed_diseases_rules:
-                    st.success(f"Berdasarkan gejala yang dipilih dan aturan yang ada, Anda kemungkinan menderita: **{disease}**")
-            else:
-                st.info("Tidak ada penyakit spesifik yang terdeteksi berdasarkan kombinasi gejala yang Anda pilih dari aturan yang tersedia.")
-                st.markdown("Jika Anda merasa khawatir dengan kondisi kesehatan Anda, sebaiknya tetap berkonsultasi dengan dokter.")
+            # Reset tampilan hasil sebelumnya
+            st.rerun()
+            
+    if st.session_state.selected_symptoms:
+        st.subheader("Gejala yang Dipilih:")
+        cols_gejala = st.columns(3)
+        for idx, code in enumerate(st.session_state.selected_symptoms):
+            with cols_gejala[idx % 3]:
+                st.info(f"{code}: {symptoms_data[code]}")
+        
+        st.markdown("---")
+        st.subheader("Hasil Deteksi Berdasarkan Rule of Inference:")
+        
+        if st.session_state.diagnosed_diseases:
+            for disease in st.session_state.diagnosed_diseases:
+                st.success(f"Berdasarkan gejala yang dipilih, Anda kemungkinan menderita: **{disease}**")
+                
+                # Tombol untuk meminta saran penanganan
+                if st.button(f"Minta Saran Penanganan Awal untuk {disease}", key=f"btn_{disease}", use_container_width=True):
+                    with st.spinner(f"Meminta saran AI untuk {disease}..."):
+                        recommendation = get_treatment_recommendation(disease)
+                        st.markdown(f"### Saran Penanganan Awal untuk {disease}")
+                        st.info(recommendation)
+
+        else:
+            st.info("Tidak ada penyakit spesifik yang terdeteksi berdasarkan kombinasi gejala yang Anda pilih dari aturan yang tersedia")
+            st.markdown("Jika Anda merasa khawatir dengan kondisi kesehatan Anda, sebaiknya tetap berkonsultasi dengan dokter")
     
     st.markdown("---")
 
-    with st.expander("Saran Tambahan", expanded=False):
+    with st.expander("Dapatkan Analisis Tambahan dari AI", expanded=False):
         st.markdown("""
         Fitur ini menggunakan LLM untuk memberikan kemungkinan kondisi lain berdasarkan
-        kombinasi gejala yang Anda pilih 
+        kombinasi gejala yang Anda pilih. Analisis ini bersifat lebih luas dan tidak terikat pada rules yang ada.
         """)
-        if st.button("Analisis dengan LLM", use_container_width=True):
+        if st.button("Analisis dengan AI", use_container_width=True):
             if not selected_symptoms_codes:
-                st.warning("Mohon pilih minimal satu gejala untuk analisis berbasis LLM")
+                st.warning("Mohon pilih minimal satu gejala untuk analisis LLM")
             else:
-                st.subheader("Gejala yang Dipilih untuk LLM Analysis:")
-                # menampilkan kembali gejala yang dipilih agar dapat dibaca LLM
+                st.subheader("Gejala yang Dipilih untuk Analisis LLM:")
                 cols_gejala_ai = st.columns(3)
                 for idx, code in enumerate(selected_symptoms_codes):
-                    cols_gejala_ai[idx % 3].info(f"{code}: {symptoms_data[code]}")
+                    with cols_gejala_ai[idx % 3]:
+                        st.info(f"{code}: {symptoms_data[code]}")
 
                 selected_symptom_descriptions = [symptoms_data[code] for code in selected_symptoms_codes]
                 
-                with st.spinner("Sedang menganalisis gejala dengan AI... Mohon tunggu."):
+                with st.spinner("Sedang menganalisis gejala..."):
                     ai_response = get_ai_suggestions(selected_symptom_descriptions)
                 
                 st.markdown("---")
-                st.subheader("LLM Response")
-                st.markdown(ai_response, unsafe_allow_html=True) # unsafe_allow_html untuk render markdown 
+                st.subheader("Hasil Analisis:")
+                st.markdown(ai_response)
 
     st.markdown("---")
-    st.caption(" Kelompok 6 ")
+    st.caption("Dibuat oleh Kelompok 6")
 
 if __name__ == "__main__":
     main()
+
